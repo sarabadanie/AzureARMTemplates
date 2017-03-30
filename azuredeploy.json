@@ -13,6 +13,13 @@
                 "enabled",
                 "disabled"
             ]
+        },
+        "networkIPv4RangeFirstTwoBytes": {
+            "type": "string",
+            "defaultValue": "10.80",
+            "metadata": {
+                "Description": "The first two bytes (in dotted notation) of the Virtual Network range, such as \"10.0\" resulting in deployment to 10.0/16"
+            }
         }
     },
     "variables": {
@@ -34,6 +41,21 @@
                     "virtualMachines": "2016-04-30-preview",
                     "virtualMachineScaleSets": "2015-06-15",
                     "deployments": "2015-01-01"
+                }
+            },
+            "vnet": { 
+                "addressSpace": "172.21.0.0/21",
+                "subnets": {
+                    "prod1": "172.21.0.0/25",
+                    "prod2": "172.21.0.128/25",
+                    "integration1": "172.21.1.0/25",
+                    "integration2": "172.21.1.128/25", 
+                    "dev1": "172.21.2.0/25", 
+                    "dev2": "172.21.2.128/25", 
+                    "build1": "172.21.3.0/25", 
+                    "build2": "172.21.3.128/25",
+                    "gateway": "172.21.7.240/29",
+                    "jumpnet": "172.21.7.0/26"
                 }
             },
             "vm": {
@@ -75,7 +97,7 @@
             "location": "[resourceGroup().location]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', concat('vnet-', variables('commonSettings').tenantName))]",
-                "[resourceId('Microsoft.Network/publicIPAddresses', concat('publicip-jumphost-', variables('commonSettings').tenantName)]"
+                "[resourceId('Microsoft.Network/publicIPAddresses', concat('publicip-jumphost-', variables('commonSettings').tenantName))]"
             ],
             "properties": {
                 "enableIPForwarding": false,
@@ -83,7 +105,6 @@
                     {
                         "name": "ipconfig1",
                         "properties": {
-                            "privateIPAddress": "172.21.7.4",
                             "privateIPAllocationMethod": "Dynamic",
                             "publicIPAddress": {
                                 "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat('publicip-jumphost-', variables('commonSettings').tenantName))]"
@@ -104,12 +125,12 @@
             "properties": {
                 "securityRules": [
                     {
-                        "name": "Block-Inbound-Integration",
+                        "name": "Block-Inbound-Integration-1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.1.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 100,
@@ -117,42 +138,42 @@
                         }
                     },
                     {
-                        "name": "Block-Inbound-Prod",
+                        "name": "Block-Inbound-Integration-2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.0.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration2]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
+                            "priority": 101,
                             "direction": "Inbound"
                         }
                     },
                     {
-                        "name": "Block-Outbound-Integration",
+                        "name": "Block-Inbound-Prod1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.1.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod1]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 100,
-                            "direction": "Outbound"
+                            "priority": 102,
+                            "direction": "Inbound"
                         }
                     },
                     {
-                        "name": "Block-Outbound-Prod",
+                        "name": "Block-Inbound-Prod2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.0.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod2]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
-                            "direction": "Outbound"
+                            "priority": 103,
+                            "direction": "Inbound"
                         }
                     }
                 ]
@@ -166,12 +187,12 @@
             "properties": {
                 "securityRules": [
                     {
-                        "name": "Block-Inbound-Dev",
+                        "name": "Block-Inbound-Dev1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.2.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 100,
@@ -179,12 +200,25 @@
                         }
                     },
                     {
-                        "name": "Block-Inbound-Prod",
+                        "name": "Block-Inbound-Dev2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.0.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev2]",
+                            "destinationAddressPrefix": "*",
+                            "access": "Deny",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "Block-Inbound-Prod1",
+                        "properties": {
+                            "protocol": "*",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "*",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 110,
@@ -192,29 +226,16 @@
                         }
                     },
                     {
-                        "name": "Block-Outbound-Dev",
+                        "name": "Block-Inbound-Prod2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.2.0/24",
-                            "access": "Deny",
-                            "priority": 100,
-                            "direction": "Outbound"
-                        }
-                    },
-                    {
-                        "name": "Block-Outbound-Prod",
-                        "properties": {
-                            "protocol": "*",
-                            "sourcePortRange": "*",
-                            "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.0.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod2]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 110,
-                            "direction": "Outbound"
+                            "direction": "Inbound"
                         }
                     }
                 ]
@@ -228,12 +249,12 @@
             "properties": {
                 "securityRules": [
                     {
-                        "name": "Block-Inbound-Dev",
+                        "name": "Block-Inbound-Dev1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.2.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 100,
@@ -241,12 +262,25 @@
                         }
                     },
                     {
-                        "name": "Block-Inbound-Integration",
+                        "name": "Block-Inbound-Dev2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.1.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev2]",
+                            "destinationAddressPrefix": "*",
+                            "access": "Deny",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "Block-Inbound-Integration1",
+                        "properties": {
+                            "protocol": "*",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "*",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 110,
@@ -254,29 +288,16 @@
                         }
                     },
                     {
-                        "name": "Block-Outbound-Dev",
+                        "name": "Block-Inbound-Integration2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.2.0/24",
-                            "access": "Deny",
-                            "priority": 100,
-                            "direction": "Outbound"
-                        }
-                    },
-                    {
-                        "name": "Block-Outbound-Integration",
-                        "properties": {
-                            "protocol": "*",
-                            "sourcePortRange": "*",
-                            "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.1.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration2]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 110,
-                            "direction": "Outbound"
+                            "direction": "Inbound"
                         }
                     }
                 ]
@@ -294,15 +315,13 @@
             ],
             "properties": {
                 "addressSpace": {
-                    "addressPrefixes": [
-                        "172.21.0.0/21"
-                    ]
+                    "addressPrefixes": [ "[variables('commonSettings').vnet.addressSpace]" ]
                 },
                 "subnets": [
                     {
                         "name": "Prod-1",
                         "properties": {
-                            "addressPrefix": "172.21.0.0/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.prod1]",
                             "networkSecurityGroup": {
                                 "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-prod-', variables('commonSettings').tenantName))]"
                             }
@@ -311,7 +330,7 @@
                     {
                         "name": "Prod-2",
                         "properties": {
-                            "addressPrefix": "172.21.0.128/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.prod2]",
                             "networkSecurityGroup": {
                                 "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-prod-', variables('commonSettings').tenantName))]"
                             }
@@ -320,7 +339,7 @@
                     {
                         "name": "Integration-1",
                         "properties": {
-                            "addressPrefix": "172.21.1.0/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.integration1]",
                             "networkSecurityGroup": {
                                 "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-integration-', variables('commonSettings').tenantName))]"
                             }
@@ -329,7 +348,7 @@
                     {
                         "name": "Integration-2",
                         "properties": {
-                            "addressPrefix": "172.21.1.128/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.integration2]",
                             "networkSecurityGroup": {
                                 "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-integration-', variables('commonSettings').tenantName))]"
                             }
@@ -338,7 +357,7 @@
                     {
                         "name": "Dev-1",
                         "properties": {
-                            "addressPrefix": "172.21.2.0/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.dev1]",
                             "networkSecurityGroup": {
                                 "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-dev-', variables('commonSettings').tenantName))]"
                             }
@@ -347,7 +366,7 @@
                     {
                         "name": "Dev-2",
                         "properties": {
-                            "addressPrefix": "172.21.2.128/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.dev2]",
                             "networkSecurityGroup": {
                                 "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-dev-', variables('commonSettings').tenantName))]"
                             }
@@ -355,27 +374,19 @@
                     },
                     {
                         "name": "Build-1",
-                        "properties": {
-                            "addressPrefix": "172.21.3.0/25"
-                        }
+                        "properties": { "addressPrefix": "[variables('commonSettings').vnet.subnets.build1]" }
                     },
                     {
                         "name": "Build-2",
-                        "properties": {
-                            "addressPrefix": "172.21.3.128/25"
-                        }
+                        "properties": { "addressPrefix": "[variables('commonSettings').vnet.subnets.build2]" }
                     },
                     {
                         "name": "GatewaySubnet",
-                        "properties": {
-                            "addressPrefix": "172.21.7.240/29"
-                        }
+                        "properties": { "addressPrefix": "[variables('commonSettings').vnet.subnets.gateway]" }
                     },
                     {
                         "name": "JumpNet",
-                        "properties": {
-                            "addressPrefix": "172.21.7.0/26"
-                        }
+                        "properties": { "addressPrefix": "[variables('commonSettings').vnet.subnets.jumpnet]" }
                     }
                 ]
             }
