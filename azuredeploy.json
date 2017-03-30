@@ -13,53 +13,13 @@
                 "enabled",
                 "disabled"
             ]
-        },
-        "virtualMachines_Jumphost01_name": {
-            "defaultValue": "Jumphost01",
-            "type": "string"
-        },
-        "Jump_Host_Network_Interface_Name": {
-            "defaultValue": "jumphost01497",
-            "type": "string"
-        },
-        "Dev_Environment_NSG_Name": {
-            "defaultValue": "Dev-NSG",
-            "type": "string"
-        },
-        "Integration_Environment_NSG_Name": {
-            "defaultValue": "Integration-NSG",
-            "type": "string"
-        },
-        "Prod_Environment_NSG_Name": {
-            "defaultValue": "Prod-NSG",
-            "type": "string"
-        },
-        "GW_Public_IP_Address_Name": {
-            "defaultValue": "Haufe-AGW-PIP",
-            "type": "string"
-        },
-        "publicIPAddresses_Jumphost01_ip_name": {
-            "defaultValue": "Jumphost01-PIP",
-            "type": "string"
-        },
-        "virtualNetworks_HRS_vnet_name": {
-            "defaultValue": "Project-vNet",
-            "type": "string"
         }
     },
     "variables": {
         "commonSettings": {
             "tenantName": "[parameters('tenantName')]",
             "parameters": {
-                "DeployJumpHost": "[parameters('DeployJumpHost')]",
-                "virtualMachines_Jumphost01_name": "[parameters('virtualMachines_Jumphost01_name')]",
-                "Jump_Host_Network_Interface_Name": "[parameters('Jump_Host_Network_Interface_Name')]",
-                "Dev_Environment_NSG_Name": "[parameters('Dev_Environment_NSG_Name')]",
-                "Integration_Environment_NSG_Name": "[parameters('Integration_Environment_NSG_Name')]",
-                "Prod_Environment_NSG_Name": "[parameters('Prod_Environment_NSG_Name')]",
-                "GW_Public_IP_Address_Name": "[parameters('GW_Public_IP_Address_Name')]",
-                "publicIPAddresses_Jumphost01_ip_name": "[parameters('publicIPAddresses_Jumphost01_ip_name')]",
-                "virtualNetworks_HRS_vnet_name": "[parameters('virtualNetworks_HRS_vnet_name')]"
+                "DeployJumpHost": "[parameters('DeployJumpHost')]"
             },
             "constants": {
                 "apiVersions": {
@@ -118,6 +78,7 @@
                 "[resourceId('Microsoft.Network/publicIPAddresses', concat('publicip-jumphost-', variables('commonSettings').tenantName)]"
             ],
             "properties": {
+                "enableIPForwarding": false,
                 "ipConfigurations": [
                     {
                         "name": "ipconfig1",
@@ -125,74 +86,19 @@
                             "privateIPAddress": "172.21.7.4",
                             "privateIPAllocationMethod": "Dynamic",
                             "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_Jumphost01_ip_name'))]"
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat('publicip-jumphost-', variables('commonSettings').tenantName))]"
                             },
                             "subnet": {
-                                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_HRS_vnet_name')), '/subnets/JumpNet')]"
+                                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', concat('vnet-', variables('commonSettings').tenantName)), '/subnets/JumpNet')]"
                             }
                         }
                     }
-                ],
-                "enableIPForwarding": false
-            }
-        },
-        {
-            "type": "Microsoft.Compute/virtualMachines",
-            "name": "[concat('vm-jumphost-', variables('commonSettings').tenantName)]",
-            "apiVersion": "[variables('commonSettings').constants.apiVersions.virtualMachines]",
-            "location": "[resourceGroup().location]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkInterfaces', concat('nic-jumphost-', variables('commonSettings').tenantName))]"
-            ],
-            "properties": {
-                "hardwareProfile": {
-                    "vmSize": "[variables('commonSettings').vm.jumphost.instanceSize]"
-                },
-                "storageProfile": {
-                    "imageReference": {
-                        "publisher": "[variables('commonSettings').vm.jumphost.publisher]",
-                        "offer": "[variables('commonSettings').vm.jumphost.offer]",
-                        "sku": "[variables('commonSettings').vm.jumphost.sku]",
-                        "version": "[variables('commonSettings').vm.jumphost.version]"
-                    },
-                    "osDisk": {
-                        "osType": "Windows",
-                        "name": "[parameters('virtualMachines_Jumphost01_name')]",
-                        "createOption": "FromImage",
-                        "vhd": {
-                            "uri": "[concat('https://esmaeildevdisks403.blob.core.windows.net/vhds/', parameters('virtualMachines_Jumphost01_name'),'20170330094948.vhd')]"
-                        },
-                        "caching": "ReadWrite"
-                    },
-                    "dataDisks": []
-                },
-                "osProfile": {
-                    "computerName": "[parameters('virtualMachines_Jumphost01_name')]",
-                    "adminUsername": "esmaeil",
-                    "windowsConfiguration": {
-                        "provisionVMAgent": true,
-                        "enableAutomaticUpdates": true
-                    },
-                    "secrets": []
-                },
-                "networkProfile": {
-                    "networkInterfaces": [
-                        {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_jumphost01497_name'))]"
-                        }
-                    ]
-                },
-                "diagnosticsProfile": {
-                    "bootDiagnostics": {
-                        "enabled": true,
-                        "storageUri": "https://esmaeildevdiag370.blob.core.windows.net/"
-                    }
-                }
+                ]
             }
         },
         {
             "type": "Microsoft.Network/networkSecurityGroups",
-            "name": "[parameters('networkSecurityGroups_Dev_NSG_name')]",
+            "name": "[concat('nsg-dev-', variables('commonSettings').tenantName)]",
             "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
             "location": "[resourceGroup().location]",
             "properties": {
@@ -250,12 +156,11 @@
                         }
                     }
                 ]
-            },
-            "dependsOn": []
+            }
         },
         {
             "type": "Microsoft.Network/networkSecurityGroups",
-            "name": "[parameters('networkSecurityGroups_Integration_NSG_name')]",
+            "name": "[concat('nsg-integration-', variables('commonSettings').tenantName)]",
             "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
             "location": "[resourceGroup().location]",
             "properties": {
@@ -313,12 +218,11 @@
                         }
                     }
                 ]
-            },
-            "dependsOn": []
+            }
         },
         {
             "type": "Microsoft.Network/networkSecurityGroups",
-            "name": "[parameters('networkSecurityGroups_Prod_NSG_name')]",
+            "name": "[concat('nsg-prod-', variables('commonSettings').tenantName)]",
             "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
             "location": "[resourceGroup().location]",
             "properties": {
@@ -376,8 +280,7 @@
                         }
                     }
                 ]
-            },
-            "dependsOn": []
+            }
         },
         {
             "type": "Microsoft.Network/virtualNetworks",
@@ -385,9 +288,9 @@
             "apiVersion": "[variables('commonSettings').constants.apiVersions.virtualNetworks]",
             "location": "[resourceGroup().location]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Prod_NSG_name'))]",
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Integration_NSG_name'))]",
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Dev_NSG_name'))]"
+                "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-dev-', variables('commonSettings').tenantName))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-integration-', variables('commonSettings').tenantName))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-prod-', variables('commonSettings').tenantName))]"
             ],
             "properties": {
                 "addressSpace": {
@@ -401,7 +304,7 @@
                         "properties": {
                             "addressPrefix": "172.21.0.0/25",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Prod_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-prod-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
@@ -410,7 +313,7 @@
                         "properties": {
                             "addressPrefix": "172.21.0.128/25",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Prod_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-prod-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
@@ -419,7 +322,7 @@
                         "properties": {
                             "addressPrefix": "172.21.1.0/25",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Integration_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-integration-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
@@ -428,7 +331,7 @@
                         "properties": {
                             "addressPrefix": "172.21.1.128/25",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Integration_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-integration-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
@@ -437,7 +340,7 @@
                         "properties": {
                             "addressPrefix": "172.21.2.0/25",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Dev_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-dev-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
@@ -446,7 +349,7 @@
                         "properties": {
                             "addressPrefix": "172.21.2.128/25",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Dev_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-dev-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
