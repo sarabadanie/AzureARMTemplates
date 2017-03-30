@@ -2,7 +2,11 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-            "DeployJumpHost": {
+        "tenantName": {
+            "type": "string",
+            "defaultValue": "barbaz"
+        },
+        "DeployJumpHost": {
             "type": "string",
             "defaultValue": "enabled",
             "allowedValues": [
@@ -10,159 +14,123 @@
                 "disabled"
             ]
         },
-            "virtualMachines_Jumphost01_name": {
-            "defaultValue": "Jumphost01",
-            "type": "string"
-        },
-        "Jump_Host_Network_Interface_Name": {
-            "defaultValue": "jumphost01497",
-            "type": "string"
-        },
-        "Dev_Environment_NSG_Name": {
-            "defaultValue": "Dev-NSG",
-            "type": "string"
-        },
-        "Integration_Environment_NSG_Name": {
-            "defaultValue": "Integration-NSG",
-            "type": "string"
-        },
-        "Prod_Environment_NSG_Name": {
-            "defaultValue": "Prod-NSG",
-            "type": "string"
-        },
-        "GW_Public_IP_Address_Name": {
-            "defaultValue": "Haufe-AGW-PIP",
-            "type": "string"
-        },
-        "publicIPAddresses_Jumphost01_ip_name": {
-            "defaultValue": "Jumphost01-PIP",
-            "type": "string"
-        },
-        "virtualNetworks_HRS_vnet_name": {
-            "defaultValue": "Project-vNet",
-            "type": "string"
+        "networkIPv4RangeFirstTwoBytes": {
+            "type": "string",
+            "defaultValue": "10.80",
+            "metadata": {
+                "Description": "The first two bytes (in dotted notation) of the Virtual Network range, such as \"10.0\" resulting in deployment to 10.0/16"
+            }
         }
     },
     "variables": {
         "commonSettings": {
+            "tenantName": "[parameters('tenantName')]",
+            "parameters": {
+                "DeployJumpHost": "[parameters('DeployJumpHost')]"
+            },
             "constants": {
                 "apiVersions": {
-                    "storageAccounts": "2015-06-15",
-                    "networkSecurityGroups": "2015-06-15",
+                    "networkSecurityGroups": "2016-03-30",
                     "loadBalancers": "2016-03-30",
-                    "virtualNetworks": "2015-06-15",
-                    "publicIPAddresses": "2015-06-15",
-                    "networkInterfaces": "2015-06-15",
-                    "virtualMachines": "2015-06-15",
+                    "virtualNetworks": "2016-03-30",
+                    "publicIPAddresses": "2016-03-30",
+                    "networkInterfaces": "2016-03-30",
+
+                    "storageAccounts": "2015-06-15",
+
+                    "virtualMachines": "2016-04-30-preview",
                     "virtualMachineScaleSets": "2015-06-15",
                     "deployments": "2015-01-01"
+                }
+            },
+            "vnet": { 
+                "addressSpace": "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.0.0/21')]",
+                "subnets": {
+                    "prod1":        "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.0.0/25')]",
+                    "prod2":        "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.0.128/25')]",
+                    "integration1": "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.1.0/25')]",
+                    "integration2": "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.1.128/25')]", 
+                    "dev1":         "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.2.0/25')]", 
+                    "dev2":         "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.2.128/25')]", 
+                    "build1":       "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.3.0/25')]", 
+                    "build2":       "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.3.128/25')]",
+                    "gateway":      "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.7.240/29')]",
+                    "jumpnet":      "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.7.0/26')]"
+                }
+            },
+            "vm": {
+                "jumphost": {
+                    "publisher": "MicrosoftWindowsServer",
+                    "offer": "WindowsServer",
+                    "sku": "2016-Datacenter",
+                    "version": "latest",
+                    "instanceSize": "Standard_DS1_v2"
                 }
             }
         }
     },
     "resources": [
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Compute/virtualMachines/Jumphost01'.",
-            "type": "Microsoft.Compute/virtualMachines",
-            "name": "[parameters('virtualMachines_Jumphost01_name')]",
-            "apiVersion": "2016-04-30-preview",
-            "location": "northeurope",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[concat('publicip-gw-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.publicIPAddresses]",
+            "location": "[resourceGroup().location]",
             "properties": {
-                "hardwareProfile": {
-                    "vmSize": "Standard_DS1_v2"
-                },
-                "storageProfile": {
-                    "imageReference": {
-                        "publisher": "MicrosoftWindowsServer",
-                        "offer": "WindowsServer",
-                        "sku": "2016-Datacenter",
-                        "version": "latest"
-                    },
-                    "osDisk": {
-                        "osType": "Windows",
-                        "name": "[parameters('virtualMachines_Jumphost01_name')]",
-                        "createOption": "FromImage",
-                        "vhd": {
-                            "uri": "[concat('https://esmaeildevdisks403.blob.core.windows.net/vhds/', parameters('virtualMachines_Jumphost01_name'),'20170330094948.vhd')]"
-                        },
-                        "caching": "ReadWrite"
-                    },
-                    "dataDisks": []
-                },
-                "osProfile": {
-                    "computerName": "[parameters('virtualMachines_Jumphost01_name')]",
-                    "adminUsername": "esmaeil",
-                    "windowsConfiguration": {
-                        "provisionVMAgent": true,
-                        "enableAutomaticUpdates": true
-                    },
-                    "secrets": []
-                },
-                "networkProfile": {
-                    "networkInterfaces": [
-                        {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_jumphost01497_name'))]"
-                        }
-                    ]
-                },
-                "diagnosticsProfile": {
-                    "bootDiagnostics": {
-                        "enabled": true,
-                        "storageUri": "https://esmaeildevdiag370.blob.core.windows.net/"
-                    }
-                }
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_jumphost01497_name'))]"
-            ]
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4
+            }
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/networkInterfaces/jumphost01497'.",
-            "type": "Microsoft.Network/networkInterfaces",
-            "name": "[parameters('networkInterfaces_jumphost01497_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[concat('publicip-jumphost-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.publicIPAddresses]",
+            "location": "[resourceGroup().location]",
             "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[concat('nic-jumphost-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.networkInterfaces]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', concat('vnet-', variables('commonSettings').tenantName))]",
+                "[resourceId('Microsoft.Network/publicIPAddresses', concat('publicip-jumphost-', variables('commonSettings').tenantName))]"
+            ],
+            "properties": {
+                "enableIPForwarding": false,
                 "ipConfigurations": [
                     {
                         "name": "ipconfig1",
                         "properties": {
-                            "privateIPAddress": "172.21.7.4",
                             "privateIPAllocationMethod": "Dynamic",
                             "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_Jumphost01_ip_name'))]"
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat('publicip-jumphost-', variables('commonSettings').tenantName))]"
                             },
                             "subnet": {
-                                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_HRS_vnet_name')), '/subnets/JumpNet')]"
+                                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', concat('vnet-', variables('commonSettings').tenantName)), '/subnets/JumpNet')]"
                             }
                         }
                     }
-                ],
-                "dnsSettings": {
-                    "dnsServers": []
-                },
-                "enableIPForwarding": false
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_Jumphost01_ip_name'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_HRS_vnet_name'))]"
-            ]
+                ]
+            }
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/networkSecurityGroups/Dev-NSG'.",
             "type": "Microsoft.Network/networkSecurityGroups",
-            "name": "[parameters('networkSecurityGroups_Dev_NSG_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "name": "[concat('nsg-dev-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
+            "location": "[resourceGroup().location]",
             "properties": {
                 "securityRules": [
                     {
-                        "name": "Block-Inbound-Integration",
+                        "name": "Block-Inbound-Integration-1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.1.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 100,
@@ -170,63 +138,61 @@
                         }
                     },
                     {
-                        "name": "Block-Inbound-Prod",
+                        "name": "Block-Inbound-Integration-2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.0.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration2]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
+                            "priority": 101,
                             "direction": "Inbound"
                         }
                     },
                     {
-                        "name": "Block-Outbound-Integration",
+                        "name": "Block-Inbound-Prod1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.1.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod1]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 100,
-                            "direction": "Outbound"
+                            "priority": 102,
+                            "direction": "Inbound"
                         }
                     },
                     {
-                        "name": "Block-Outbound-Prod",
+                        "name": "Block-Inbound-Prod2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.0.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod2]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
-                            "direction": "Outbound"
+                            "priority": 103,
+                            "direction": "Inbound"
                         }
                     }
                 ]
-            },
-            "dependsOn": []
+            }
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/networkSecurityGroups/Integration-NSG'.",
             "type": "Microsoft.Network/networkSecurityGroups",
-            "name": "[parameters('networkSecurityGroups_Integration_NSG_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "name": "[concat('nsg-integration-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
+            "location": "[resourceGroup().location]",
             "properties": {
                 "securityRules": [
                     {
-                        "name": "Block-Inbound-Dev",
+                        "name": "Block-Inbound-Dev1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.2.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 100,
@@ -234,63 +200,61 @@
                         }
                     },
                     {
-                        "name": "Block-Inbound-Prod",
+                        "name": "Block-Inbound-Dev2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.0.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev2]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
+                            "priority": 101,
                             "direction": "Inbound"
                         }
                     },
                     {
-                        "name": "Block-Outbound-Dev",
+                        "name": "Block-Inbound-Prod1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.2.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod1]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 100,
-                            "direction": "Outbound"
+                            "priority": 102,
+                            "direction": "Inbound"
                         }
                     },
                     {
-                        "name": "Block-Outbound-Prod",
+                        "name": "Block-Inbound-Prod2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.0.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod2]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
-                            "direction": "Outbound"
+                            "priority": 103,
+                            "direction": "Inbound"
                         }
                     }
                 ]
-            },
-            "dependsOn": []
+            }
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/networkSecurityGroups/Prod-NSG'.",
             "type": "Microsoft.Network/networkSecurityGroups",
-            "name": "[parameters('networkSecurityGroups_Prod_NSG_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "name": "[concat('nsg-prod-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
+            "location": "[resourceGroup().location]",
             "properties": {
                 "securityRules": [
                     {
-                        "name": "Block-Inbound-Dev",
+                        "name": "Block-Inbound-Dev1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.2.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
                             "priority": 100,
@@ -298,170 +262,134 @@
                         }
                     },
                     {
-                        "name": "Block-Inbound-Integration",
+                        "name": "Block-Inbound-Dev2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "172.21.1.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev2]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
+                            "priority": 101,
                             "direction": "Inbound"
                         }
                     },
                     {
-                        "name": "Block-Outbound-Dev",
+                        "name": "Block-Inbound-Integration1",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.2.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration1]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 100,
-                            "direction": "Outbound"
+                            "priority": 102,
+                            "direction": "Inbound"
                         }
                     },
                     {
-                        "name": "Block-Outbound-Integration",
+                        "name": "Block-Inbound-Integration2",
                         "properties": {
                             "protocol": "*",
                             "sourcePortRange": "*",
                             "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "172.21.1.0/24",
+                            "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration2]",
+                            "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
-                            "direction": "Outbound"
+                            "priority": 103,
+                            "direction": "Inbound"
                         }
                     }
                 ]
-            },
-            "dependsOn": []
+            }
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/publicIPAddresses/Haufe-AGW-PIP'.",
-            "type": "Microsoft.Network/publicIPAddresses",
-            "name": "[parameters('publicIPAddresses_Haufe_AGW_PIP_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
-            "properties": {
-                "publicIPAllocationMethod": "Dynamic",
-                "idleTimeoutInMinutes": 4
-            },
-            "dependsOn": []
-        },
-        {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/publicIPAddresses/Jumphost01-ip'.",
-            "type": "Microsoft.Network/publicIPAddresses",
-            "name": "[parameters('publicIPAddresses_Jumphost01_ip_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
-            "properties": {
-                "publicIPAllocationMethod": "Dynamic",
-                "idleTimeoutInMinutes": 4
-            },
-            "dependsOn": []
-        },
-        {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/virtualNetworks/HRS-vnet'.",
             "type": "Microsoft.Network/virtualNetworks",
-            "name": "[parameters('virtualNetworks_HRS_vnet_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "name": "[concat('vnet-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.virtualNetworks]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-dev-', variables('commonSettings').tenantName))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-integration-', variables('commonSettings').tenantName))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-prod-', variables('commonSettings').tenantName))]"
+            ],
             "properties": {
                 "addressSpace": {
-                    "addressPrefixes": [
-                        "172.21.0.0/21"
-                    ]
+                    "addressPrefixes": [ "[variables('commonSettings').vnet.addressSpace]" ]
                 },
                 "subnets": [
                     {
                         "name": "Prod-1",
                         "properties": {
-                            "addressPrefix": "172.21.0.0/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.prod1]",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Prod_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-prod-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
                     {
                         "name": "Prod-2",
                         "properties": {
-                            "addressPrefix": "172.21.0.128/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.prod2]",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Prod_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-prod-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
                     {
                         "name": "Integration-1",
                         "properties": {
-                            "addressPrefix": "172.21.1.0/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.integration1]",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Integration_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-integration-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
                     {
                         "name": "Integration-2",
                         "properties": {
-                            "addressPrefix": "172.21.1.128/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.integration2]",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Integration_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-integration-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
                     {
                         "name": "Dev-1",
                         "properties": {
-                            "addressPrefix": "172.21.2.0/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.dev1]",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Dev_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-dev-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
                     {
                         "name": "Dev-2",
                         "properties": {
-                            "addressPrefix": "172.21.2.128/25",
+                            "addressPrefix": "[variables('commonSettings').vnet.subnets.dev2]",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Dev_NSG_name'))]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat('nsg-dev-', variables('commonSettings').tenantName))]"
                             }
                         }
                     },
                     {
                         "name": "Build-1",
-                        "properties": {
-                            "addressPrefix": "172.21.3.0/25"
-                        }
+                        "properties": { "addressPrefix": "[variables('commonSettings').vnet.subnets.build1]" }
                     },
                     {
                         "name": "Build-2",
-                        "properties": {
-                            "addressPrefix": "172.21.3.128/25"
-                        }
+                        "properties": { "addressPrefix": "[variables('commonSettings').vnet.subnets.build2]" }
                     },
                     {
                         "name": "GatewaySubnet",
-                        "properties": {
-                            "addressPrefix": "172.21.7.240/29"
-                        }
+                        "properties": { "addressPrefix": "[variables('commonSettings').vnet.subnets.gateway]" }
                     },
                     {
                         "name": "JumpNet",
-                        "properties": {
-                            "addressPrefix": "172.21.7.0/26"
-                        }
+                        "properties": { "addressPrefix": "[variables('commonSettings').vnet.subnets.jumpnet]" }
                     }
                 ]
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Prod_NSG_name'))]",
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Integration_NSG_name'))]",
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Dev_NSG_name'))]"
-            ]
+            }
         }
     ]
 }

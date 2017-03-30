@@ -1,0 +1,52 @@
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[concat('vm-jumphost-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.virtualMachines]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', concat('nic-jumphost-', variables('commonSettings').tenantName))]"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('commonSettings').vm.jumphost.instanceSize]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('commonSettings').vm.jumphost.publisher]",
+                        "offer": "[variables('commonSettings').vm.jumphost.offer]",
+                        "sku": "[variables('commonSettings').vm.jumphost.sku]",
+                        "version": "[variables('commonSettings').vm.jumphost.version]"
+                    },
+                    "osDisk": {
+                        "osType": "Windows",
+                        "name": "[concat('vm-jumphost-', variables('commonSettings').tenantName)]",
+                        "createOption": "FromImage",
+                        "vhd": {
+                            "uri": "[concat('https://esmaeildevdisks403.blob.core.windows.net/vhds/', concat('vm-jumphost-', variables('commonSettings').tenantName), '20170330094948.vhd')]"
+                        },
+                        "caching": "ReadWrite"
+                    }
+                },
+                "osProfile": {
+                    "computerName": "[concat('vm-jumphost-', variables('commonSettings').tenantName)]",
+                    "adminUsername": "esmaeil",
+                    "windowsConfiguration": {
+                        "provisionVMAgent": true,
+                        "enableAutomaticUpdates": true
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat('nic-jumphost-', variables('commonSettings').tenantName))]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": true,
+                        "storageUri": "https://esmaeildevdiag370.blob.core.windows.net/"
+                    }
+                }
+            }
+        },
