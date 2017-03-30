@@ -2,7 +2,11 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-            "DeployJumpHost": {
+        "tenantName": {
+            "type": "string",
+            "defaultValue": "barbaz"
+        },
+        "DeployJumpHost": {
             "type": "string",
             "defaultValue": "enabled",
             "allowedValues": [
@@ -10,7 +14,7 @@
                 "disabled"
             ]
         },
-            "virtualMachines_Jumphost01_name": {
+        "virtualMachines_Jumphost01_name": {
             "defaultValue": "Jumphost01",
             "type": "string"
         },
@@ -45,38 +49,111 @@
     },
     "variables": {
         "commonSettings": {
+            "tenantName": "[parameters('tenantName')]",
+            "parameters": {
+                "DeployJumpHost": "[parameters('DeployJumpHost')]",
+                "virtualMachines_Jumphost01_name": "[parameters('virtualMachines_Jumphost01_name')]",
+                "Jump_Host_Network_Interface_Name": "[parameters('Jump_Host_Network_Interface_Name')]",
+                "Dev_Environment_NSG_Name": "[parameters('Dev_Environment_NSG_Name')]",
+                "Integration_Environment_NSG_Name": "[parameters('Integration_Environment_NSG_Name')]",
+                "Prod_Environment_NSG_Name": "[parameters('Prod_Environment_NSG_Name')]",
+                "GW_Public_IP_Address_Name": "[parameters('GW_Public_IP_Address_Name')]",
+                "publicIPAddresses_Jumphost01_ip_name": "[parameters('publicIPAddresses_Jumphost01_ip_name')]",
+                "virtualNetworks_HRS_vnet_name": "[parameters('virtualNetworks_HRS_vnet_name')]"
+            },
             "constants": {
                 "apiVersions": {
-                    "storageAccounts": "2015-06-15",
-                    "networkSecurityGroups": "2015-06-15",
+                    "networkSecurityGroups": "2016-03-30",
                     "loadBalancers": "2016-03-30",
-                    "virtualNetworks": "2015-06-15",
-                    "publicIPAddresses": "2015-06-15",
-                    "networkInterfaces": "2015-06-15",
-                    "virtualMachines": "2015-06-15",
+                    "virtualNetworks": "2016-03-30",
+                    "publicIPAddresses": "2016-03-30",
+                    "networkInterfaces": "2016-03-30",
+
+                    "storageAccounts": "2015-06-15",
+
+                    "virtualMachines": "2016-04-30-preview",
                     "virtualMachineScaleSets": "2015-06-15",
                     "deployments": "2015-01-01"
+                }
+            },
+            "vm": {
+                "jumphost": {
+                    "publisher": "MicrosoftWindowsServer",
+                    "offer": "WindowsServer",
+                    "sku": "2016-Datacenter",
+                    "version": "latest",
+                    "instanceSize": "Standard_DS1_v2"
                 }
             }
         }
     },
     "resources": [
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Compute/virtualMachines/Jumphost01'.",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[concat('publicip-gw-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.publicIPAddresses]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[concat('publicip-jumphost-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.publicIPAddresses]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[concat('nic-jumphost-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.networkInterfaces]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', concat('vnet-', variables('commonSettings').tenantName))]",
+                "[resourceId('Microsoft.Network/publicIPAddresses', concat('publicip-jumphost-', variables('commonSettings').tenantName)]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAddress": "172.21.7.4",
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_Jumphost01_ip_name'))]"
+                            },
+                            "subnet": {
+                                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_HRS_vnet_name')), '/subnets/JumpNet')]"
+                            }
+                        }
+                    }
+                ],
+                "enableIPForwarding": false
+            }
+        },
+        {
             "type": "Microsoft.Compute/virtualMachines",
-            "name": "[parameters('virtualMachines_Jumphost01_name')]",
-            "apiVersion": "2016-04-30-preview",
-            "location": "northeurope",
+            "name": "[concat('vm-jumphost-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.virtualMachines]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', concat('nic-jumphost-', variables('commonSettings').tenantName))]"
+            ],
             "properties": {
                 "hardwareProfile": {
-                    "vmSize": "Standard_DS1_v2"
+                    "vmSize": "[variables('commonSettings').vm.jumphost.instanceSize]"
                 },
                 "storageProfile": {
                     "imageReference": {
-                        "publisher": "MicrosoftWindowsServer",
-                        "offer": "WindowsServer",
-                        "sku": "2016-Datacenter",
-                        "version": "latest"
+                        "publisher": "[variables('commonSettings').vm.jumphost.publisher]",
+                        "offer": "[variables('commonSettings').vm.jumphost.offer]",
+                        "sku": "[variables('commonSettings').vm.jumphost.sku]",
+                        "version": "[variables('commonSettings').vm.jumphost.version]"
                     },
                     "osDisk": {
                         "osType": "Windows",
@@ -111,49 +188,13 @@
                         "storageUri": "https://esmaeildevdiag370.blob.core.windows.net/"
                     }
                 }
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_jumphost01497_name'))]"
-            ]
+            }
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/networkInterfaces/jumphost01497'.",
-            "type": "Microsoft.Network/networkInterfaces",
-            "name": "[parameters('networkInterfaces_jumphost01497_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
-            "properties": {
-                "ipConfigurations": [
-                    {
-                        "name": "ipconfig1",
-                        "properties": {
-                            "privateIPAddress": "172.21.7.4",
-                            "privateIPAllocationMethod": "Dynamic",
-                            "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_Jumphost01_ip_name'))]"
-                            },
-                            "subnet": {
-                                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_HRS_vnet_name')), '/subnets/JumpNet')]"
-                            }
-                        }
-                    }
-                ],
-                "dnsSettings": {
-                    "dnsServers": []
-                },
-                "enableIPForwarding": false
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_Jumphost01_ip_name'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_HRS_vnet_name'))]"
-            ]
-        },
-        {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/networkSecurityGroups/Dev-NSG'.",
             "type": "Microsoft.Network/networkSecurityGroups",
             "name": "[parameters('networkSecurityGroups_Dev_NSG_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
+            "location": "[resourceGroup().location]",
             "properties": {
                 "securityRules": [
                     {
@@ -213,11 +254,10 @@
             "dependsOn": []
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/networkSecurityGroups/Integration-NSG'.",
             "type": "Microsoft.Network/networkSecurityGroups",
             "name": "[parameters('networkSecurityGroups_Integration_NSG_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
+            "location": "[resourceGroup().location]",
             "properties": {
                 "securityRules": [
                     {
@@ -277,11 +317,10 @@
             "dependsOn": []
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/networkSecurityGroups/Prod-NSG'.",
             "type": "Microsoft.Network/networkSecurityGroups",
             "name": "[parameters('networkSecurityGroups_Prod_NSG_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.networkSecurityGroups]",
+            "location": "[resourceGroup().location]",
             "properties": {
                 "securityRules": [
                     {
@@ -341,35 +380,15 @@
             "dependsOn": []
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/publicIPAddresses/Haufe-AGW-PIP'.",
-            "type": "Microsoft.Network/publicIPAddresses",
-            "name": "[parameters('publicIPAddresses_Haufe_AGW_PIP_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
-            "properties": {
-                "publicIPAllocationMethod": "Dynamic",
-                "idleTimeoutInMinutes": 4
-            },
-            "dependsOn": []
-        },
-        {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/publicIPAddresses/Jumphost01-ip'.",
-            "type": "Microsoft.Network/publicIPAddresses",
-            "name": "[parameters('publicIPAddresses_Jumphost01_ip_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
-            "properties": {
-                "publicIPAllocationMethod": "Dynamic",
-                "idleTimeoutInMinutes": 4
-            },
-            "dependsOn": []
-        },
-        {
-            "comments": "Generalized from resource: '/subscriptions/aa92f78e-303f-4499-b94b-8abfdc417189/resourceGroups/HRS-Prod/providers/Microsoft.Network/virtualNetworks/HRS-vnet'.",
             "type": "Microsoft.Network/virtualNetworks",
-            "name": "[parameters('virtualNetworks_HRS_vnet_name')]",
-            "apiVersion": "2016-03-30",
-            "location": "northeurope",
+            "name": "[concat('vnet-', variables('commonSettings').tenantName)]",
+            "apiVersion": "[variables('commonSettings').constants.apiVersions.virtualNetworks]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Prod_NSG_name'))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Integration_NSG_name'))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Dev_NSG_name'))]"
+            ],
             "properties": {
                 "addressSpace": {
                     "addressPrefixes": [
@@ -456,12 +475,7 @@
                         }
                     }
                 ]
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Prod_NSG_name'))]",
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Integration_NSG_name'))]",
-                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroups_Dev_NSG_name'))]"
-            ]
+            }
         }
     ]
 }
