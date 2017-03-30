@@ -44,18 +44,18 @@
                 }
             },
             "vnet": { 
-                "addressSpace": "172.21.0.0/21",
+                "addressSpace": "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.0.0/21')]",
                 "subnets": {
-                    "prod1": "172.21.0.0/25",
-                    "prod2": "172.21.0.128/25",
-                    "integration1": "172.21.1.0/25",
-                    "integration2": "172.21.1.128/25", 
-                    "dev1": "172.21.2.0/25", 
-                    "dev2": "172.21.2.128/25", 
-                    "build1": "172.21.3.0/25", 
-                    "build2": "172.21.3.128/25",
-                    "gateway": "172.21.7.240/29",
-                    "jumpnet": "172.21.7.0/26"
+                    "prod1":        "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.0.0/25')]",
+                    "prod2":        "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.0.128/25')]",
+                    "integration1": "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.1.0/25')]",
+                    "integration2": "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.1.128/25')]", 
+                    "dev1":         "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.2.0/25')]", 
+                    "dev2":         "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.2.128/25')]", 
+                    "build1":       "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.3.0/25')]", 
+                    "build2":       "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.3.128/25')]",
+                    "gateway":      "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.7.240/29')]",
+                    "jumpnet":      "[concat(parameters('networkIPv4RangeFirstTwoBytes'), '.7.0/26')]"
                 }
             },
             "vm": {
@@ -208,7 +208,7 @@
                             "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev2]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 100,
+                            "priority": 101,
                             "direction": "Inbound"
                         }
                     },
@@ -221,7 +221,7 @@
                             "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
+                            "priority": 102,
                             "direction": "Inbound"
                         }
                     },
@@ -234,7 +234,7 @@
                             "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.prod2]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
+                            "priority": 103,
                             "direction": "Inbound"
                         }
                     }
@@ -270,7 +270,7 @@
                             "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.dev2]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 100,
+                            "priority": 101,
                             "direction": "Inbound"
                         }
                     },
@@ -283,7 +283,7 @@
                             "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration1]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
+                            "priority": 102,
                             "direction": "Inbound"
                         }
                     },
@@ -296,7 +296,7 @@
                             "sourceAddressPrefix": "[variables('commonSettings').vnet.subnets.integration2]",
                             "destinationAddressPrefix": "*",
                             "access": "Deny",
-                            "priority": 110,
+                            "priority": 103,
                             "direction": "Inbound"
                         }
                     }
